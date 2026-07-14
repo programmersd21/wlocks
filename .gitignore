@@ -1,5 +1,5 @@
 # binaries
-wlocks
+/wlocks
 *.exe
 *.dll
 *.so
