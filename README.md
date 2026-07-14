@@ -40,36 +40,32 @@ a terminal tool that shows which processes have which files open. an `lsof`/`fus
 ### experience
 - **keyboard-driven** - zero mouse required
 - **respects terminals** - detects tty, falls back to plain text for pipes
-- **persistent config** - theme and preferences saved to `~/.config/wlocks/config.toml`
+- **persistent config** - theme preference saved to `~/.config/wlocks/config.toml`
 - **visual hierarchy** - smart use of color, spacing, and typography
 
 ## installation
 
 ### from releases
 
-download the latest binary for your platform from [github releases](https://github.com/programmersd21/wlocks/releases):
+download the latest linux binary from [github releases](https://github.com/programmersd21/wlocks/releases):
 
 ```bash
-# linux (amd64)
+# linux amd64
 curl -L https://github.com/programmersd21/wlocks/releases/latest/download/wlocks_linux_amd64.tar.gz | tar xz
 sudo mv wlocks /usr/local/bin/
 
-# linux (arm64)
+# linux arm64
 curl -L https://github.com/programmersd21/wlocks/releases/latest/download/wlocks_linux_arm64.tar.gz | tar xz
-sudo mv wlocks /usr/local/bin/
-
-# macos (arm64)
-curl -L https://github.com/programmersd21/wlocks/releases/latest/download/wlocks_darwin_arm64.tar.gz | tar xz
 sudo mv wlocks /usr/local/bin/
 ```
 
 ### from source
 
-requires go 1.23+
+requires go 1.24+
 
 ```bash
+git clone https://github.com/programmersd21/wlocks.git
 cd wlocks
-go mod download
 go build -o wlocks ./cmd/wlocks
 sudo mv wlocks /usr/local/bin/
 ```
@@ -212,3 +208,7 @@ wlocks/
 ```
 
 **critical constraint**: `internal/proc` has no ui dependencies - it's independently testable and reusable for future `--json` mode.
+
+## license
+
+[mit](LICENSE)
