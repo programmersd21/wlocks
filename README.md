@@ -1,10 +1,10 @@
 # wlocks
 
-[![go](https://img.shields.io/badge/go-1.24-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![license](https://img.shields.io/badge/license-MIT-2ecc71?style=flat-square)](LICENSE)
-[![release](https://img.shields.io/github/v/release/programmersd21/wlocks?style=flat-square&color=9b59b6)](https://github.com/programmersd21/wlocks/releases)
-[![ci](https://img.shields.io/github/actions/workflow/status/programmersd21/wlocks/ci.yml?style=flat-square&label=ci)](https://github.com/programmersd21/wlocks/actions)
-[![goreleaser](https://img.shields.io/badge/goreleaser-F4E427?style=flat-square&logo=goreleaser&logoColor=black)](https://goreleaser.com)
+[![go](https://img.shields.io/badge/go-1.24-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
+[![license](https://img.shields.io/badge/license-MIT-2ecc71?style=for-the-badge)](LICENSE)
+[![release](https://img.shields.io/github/v/release/programmersd21/wlocks?style=for-the-badge&color=9b59b6)](https://github.com/programmersd21/wlocks/releases)
+[![ci](https://img.shields.io/github/actions/workflow/status/programmersd21/wlocks/ci.yml?style=for-the-badge&label=ci)](https://github.com/programmersd21/wlocks/actions)
+[![goreleaser](https://img.shields.io/badge/goreleaser-F4E427?style=for-the-badge&logo=goreleaser&logoColor=black)](https://goreleaser.com)
 
 ![screenshot](image.png)
 
