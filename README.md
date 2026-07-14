@@ -1,6 +1,6 @@
 # wlocks
 
-[![go](https://img.shields.io/badge/go-1.24-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
+[![go](https://img.shields.io/badge/go-1.25-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
 [![license](https://img.shields.io/badge/license-MIT-2ecc71?style=for-the-badge)](LICENSE)
 [![release](https://img.shields.io/github/v/release/programmersd21/wlocks?style=for-the-badge&color=9b59b6)](https://github.com/programmersd21/wlocks/releases)
 [![ci](https://img.shields.io/github/actions/workflow/status/programmersd21/wlocks/ci.yml?style=for-the-badge&label=ci)](https://github.com/programmersd21/wlocks/actions)
@@ -61,7 +61,7 @@ sudo mv wlocks /usr/local/bin/
 
 ### from source
 
-requires go 1.24+
+requires go 1.25+
 
 ```bash
 git clone https://github.com/programmersd21/wlocks.git
