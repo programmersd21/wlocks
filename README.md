@@ -39,6 +39,26 @@ a terminal tool that shows which processes have which files open. an `lsof`/`fus
 
 ## installation
 
+### from releases
+
+download the latest binary for your platform from [github releases](https://github.com/programmersd21/wlocks/releases):
+
+```bash
+# linux (amd64)
+curl -L https://github.com/programmersd21/wlocks/releases/latest/download/wlocks_linux_amd64.tar.gz | tar xz
+sudo mv wlocks /usr/local/bin/
+
+# linux (arm64)
+curl -L https://github.com/programmersd21/wlocks/releases/latest/download/wlocks_linux_arm64.tar.gz | tar xz
+sudo mv wlocks /usr/local/bin/
+
+# macos (arm64)
+curl -L https://github.com/programmersd21/wlocks/releases/latest/download/wlocks_darwin_arm64.tar.gz | tar xz
+sudo mv wlocks /usr/local/bin/
+```
+
+### from source
+
 requires go 1.23+
 
 ```bash

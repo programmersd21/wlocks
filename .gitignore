@@ -23,6 +23,9 @@ go.work.sum
 *.swo
 *~
 
+# goreleaser
+dist/
+
 # os
 .DS_Store
 Thumbs.db
