@@ -1,0 +1,28 @@
+# binaries
+wlocks
+*.exe
+*.dll
+*.so
+*.dylib
+
+# test binaries
+*.test
+
+# coverage
+*.out
+*.prof
+
+# go workspace
+go.work
+go.work.sum
+
+# ide
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# os
+.DS_Store
+Thumbs.db
