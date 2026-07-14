@@ -9,13 +9,19 @@ import (
 
 // Config holds persistent user configuration.
 type Config struct {
-	Theme string `toml:"theme"`
+	Theme           string `toml:"theme"`
+	DefaultSort     string `toml:"default_sort"`
+	LiveRefreshRate int    `toml:"live_refresh_rate_seconds"`
+	AnimationSpeed  string `toml:"animation_speed"`
 }
 
 // Default returns the default configuration.
 func Default() *Config {
 	return &Config{
-		Theme: "default",
+		Theme:           "default",
+		DefaultSort:     "duration",
+		LiveRefreshRate: 2,
+		AnimationSpeed:  "normal",
 	}
 }
 

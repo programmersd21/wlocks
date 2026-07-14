@@ -13,15 +13,29 @@ a terminal tool that shows which processes have which files open. an `lsof`/`fus
 - no borders, boxes, ascii art, emoji, or nerd fonts
 - whitespace as primary layout tool
 - instant startup, progressive population
+- smooth animations and visual feedback
 
-## features (v0.1)
+## features
 
-- **static mode** - show all processes holding a specific file
+### core
+- **auto-refresh** - continuously monitors file access, polls every 2 seconds
 - **detail view** - expanded process information (pid, cmdline, cwd, fd count)
 - **fuzzy search** - filter results live with `/` key
+- **smart sorting** - sort by name, duration, pid, or mode (with reverse)
+
+### interface
 - **theme system** - six hand-tuned themes, cycle with `T`
+- **smooth animations** - 60fps transitions and scrolling with cubic easing
+- **command palette** - quick access to all actions with `ctrl+p`
+- **interactive help** - press `?` anytime to see available commands
+- **statistics view** - see aggregate info with `i`
+- **status notifications** - ephemeral feedback for all actions
+
+### experience
 - **keyboard-driven** - zero mouse required
 - **respects terminals** - detects tty, falls back to plain text for pipes
+- **persistent config** - theme and preferences saved to `~/.config/wlocks/config.toml`
+- **visual hierarchy** - smart use of color, spacing, and typography
 
 ## installation
 
@@ -52,29 +66,78 @@ wlocks --debug /path/to/file
 
 ## keyboard shortcuts
 
+### navigation
 | key | action |
 |-----|--------|
-| `j`/`k` or arrows | navigate |
-| `enter` | detail view |
-| `esc` | back / clear search |
-| `/` | search |
-| `r` | refresh |
+| `j`/`k` or `↑`/`↓` | navigate list |
+| `enter` | show process details |
+| `esc` | go back / clear search |
+
+### actions
+| key | action |
+|-----|--------|
+| `/` | search processes |
+| `r` | refresh snapshot |
+| `K` | kill process (with confirm) |
+| `s` | cycle sort mode (name/duration/pid/mode) |
+| `S` | reverse sort order |
+
+### views
+| key | action |
+|-----|--------|
+| `?` | show help |
+| `i` | show statistics |
+| `ctrl+p` | command palette |
+
+### customization
+| key | action |
+|-----|--------|
 | `T` | cycle theme |
-| `?` | command palette |
+
+### other
+| key | action |
+|-----|--------|
 | `q` | quit |
+| `ctrl+c` | force quit |
 
 ## themes
 
 six hand-tuned themes, not palette swaps:
 
 - `default` - desaturated neutral, single blue accent
-- `tokyo` - tokyo night derived
-- `catppuccin` - mocha variant
-- `everforest` - soft green forest
-- `nord` - arctic, pastel-colored
-- `gruvbox` - retro groove
+- `tokyo` - tokyo night derived, deep blues and purples
+- `catppuccin` - mocha variant, soft pastels
+- `everforest` - soft green forest, earthy tones
+- `nord` - arctic, ice-cold pastels
+- `gruvbox` - retro groove, warm contrast
 
 set with `--theme <name>`, persisted to `~/.config/wlocks/config.toml`, cycle at runtime with `T`.
+
+## auto-refresh
+
+wlocks continuously polls `/proc` every 2 seconds to detect changes. when processes open or close a file, the list updates automatically and status messages appear showing the delta (e.g. `+2 new`, `3 closed`).
+
+press `r` to force an immediate refresh at any time.
+
+## sorting
+
+sort results by different criteria:
+- **name** - alphabetical by process name
+- **duration** - how long the file has been open (default)
+- **pid** - numerical process id
+- **mode** - read vs write access
+
+press `s` to cycle through sort modes, `S` to reverse the order.
+
+## configuration
+
+config file location: `~/.config/wlocks/config.toml`
+
+```toml
+theme = "tokyo"
+```
+
+theme preference is persisted automatically when set with `--theme`.
 
 ## how it works
 
@@ -86,7 +149,14 @@ wlocks scans `/proc/[pid]/fd/*` to discover open files. key implementation detai
 - **read vs write mode**: parses `/proc/[pid]/fdinfo/[fd]` flags field, decodes `O_ACCMODE` bits (0=read, 1=write, 2=rdwr) - never guesses from symlink
 - **process metadata**: reads `/proc/[pid]/comm`, `/proc/[pid]/cmdline` (null-separated), `/proc/[pid]/cwd`, `/proc/[pid]/exe`
 - **permissions**: gracefully skips processes with EACCES, counts in debug mode
-- **no inotify**: procfs doesn't generate inotify events (it's synthetic), so live mode (v0.2) will poll with configurable interval
+- **auto-refresh**: polls `/proc` at 2-second intervals (procfs doesn't generate inotify events since it's synthetic)
+
+### animations
+
+all animations use cubic bezier easing functions for natural motion:
+- **list scrolling** - smooth interpolation between positions
+- **view transitions** - fade in/out with ease-in-out curves
+- **60fps** - 16ms tick rate for butter-smooth updates
 
 ### project structure
 
@@ -105,8 +175,10 @@ wlocks/
       detail.go          # detail view rendering
       search.go          # fuzzy search with sahilm/fuzzy
       palette.go         # command palette overlay
+      help.go            # interactive help view
       keys.go            # keybindings
       theme.go           # theme definitions, style builder
+      animation.go       # animation utilities and easing functions
     config/
       config.go          # toml config persistence
     app/
@@ -114,29 +186,3 @@ wlocks/
 ```
 
 **critical constraint**: `internal/proc` has no ui dependencies - it's independently testable and reusable for future `--json` mode.
-
-## v0.1 definition of done
-
-- [x] all six themes render correctly on light and dark backgrounds, zero background color leakage
-- [x] static mode, detail view, search, theme cycling keyboard-navigable
-- [x] no borders/boxes/ascii art/emoji anywhere
-- [x] every user-facing string is lowercase
-- [x] non-tty invocation produces clean plain text output
-- [x] internal/proc has no bubbletea/lipgloss imports
-- [ ] cold start to first frame under 20ms (needs go installed to benchmark)
-
-## roadmap
-
-- **v0.2** - `--live` activity feed, process tree view, poll-based watcher
-- **v0.3** - kill with confirm flow, `--json` output, `--debug` mode
-- **v1.0** - ebpf watcher backend (real-time open/close events without polling)
-
-## design references
-
-ghostty, linear, claude code, lazygit, superfile, fzf, eza, bat, ripgrep.
-
-explicitly avoiding: htop/btop density, apple skeuomorphism, cyberpunk aesthetics, retro ascii.
-
-## license
-
-mit

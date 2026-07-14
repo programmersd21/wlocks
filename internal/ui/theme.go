@@ -16,8 +16,8 @@ type Theme struct {
 }
 
 var themes = map[string]*Theme{
-	"aurora": {
-		Name:          "aurora",
+	"default": {
+		Name:          "default",
 		TextPrimary:   "#f9fafb",
 		TextSecondary: "#e5e7eb",
 		TextTertiary:  "#9ca3af",
@@ -27,18 +27,6 @@ var themes = map[string]*Theme{
 		Positive:      "#34d399",
 		Warning:       "#fbbf24",
 		Danger:        "#f87171",
-	},
-	"citrus": {
-		Name:          "citrus",
-		TextPrimary:   "#fafaf9",
-		TextSecondary: "#d6d3d1",
-		TextTertiary:  "#78716c",
-		TextGhost:     "#44403c",
-		Accent:        "#e4f222",
-		AccentDim:     "#a3b10b",
-		Positive:      "#84cc16",
-		Warning:       "#f59e0b",
-		Danger:        "#ef4444",
 	},
 	"tokyo": {
 		Name:          "tokyo",
@@ -63,6 +51,18 @@ var themes = map[string]*Theme{
 		Positive:      "#a6e3a1",
 		Warning:       "#f9e2af",
 		Danger:        "#f38ba8",
+	},
+	"everforest": {
+		Name:          "everforest",
+		TextPrimary:   "#d3c6aa",
+		TextSecondary: "#a7c080",
+		TextTertiary:  "#859289",
+		TextGhost:     "#4a555b",
+		Accent:        "#a7c080",
+		AccentDim:     "#7fbbb3",
+		Positive:      "#a7c080",
+		Warning:       "#dbbc7f",
+		Danger:        "#e67e80",
 	},
 	"nord": {
 		Name:          "nord",
@@ -91,14 +91,14 @@ var themes = map[string]*Theme{
 }
 
 func ThemeNames() []string {
-	return []string{"aurora", "citrus", "tokyo", "catppuccin", "nord", "gruvbox"}
+	return []string{"default", "tokyo", "catppuccin", "everforest", "nord", "gruvbox"}
 }
 
 func GetTheme(name string) *Theme {
 	if t, ok := themes[name]; ok {
 		return t
 	}
-	return themes["aurora"]
+	return themes["default"]
 }
 
 func NextTheme(current string) string {

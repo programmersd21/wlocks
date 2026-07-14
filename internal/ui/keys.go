@@ -12,22 +12,30 @@ type KeyMap struct {
 	Tree           []string
 	ThemeCycle     []string
 	CommandPalette []string
+	Help           []string
+	Stats          []string
+	Sort           []string
+	SortReverse    []string
 	Quit           []string
 }
 
 // DefaultKeyMap returns the default key bindings.
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
-		Up:             []string{"k", "up"},   // k or up arrow
-		Down:           []string{"j", "down"}, // j or down arrow
-		Enter:          []string{"enter"},     // enter
-		Esc:            []string{"esc"},       // escape
+		Up:             []string{"k", "up"},
+		Down:           []string{"j", "down"},
+		Enter:          []string{"enter"},
+		Esc:            []string{"esc"},
 		Search:         []string{"/"},
 		Refresh:        []string{"r"},
-		Kill:           []string{"K"}, // capital K only, to avoid collision with down
+		Kill:           []string{"K"},
 		Tree:           []string{"t"},
-		ThemeCycle:     []string{"T"}, // capital T
-		CommandPalette: []string{"?"},
+		ThemeCycle:     []string{"T"},
+		CommandPalette: []string{"ctrl+p"},
+		Help:           []string{"?"},
+		Stats:          []string{"i"},
+		Sort:           []string{"s"},
+		SortReverse:    []string{"S"},
 		Quit:           []string{"q", "ctrl+c"},
 	}
 }

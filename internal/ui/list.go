@@ -14,14 +14,20 @@ func (m *Model) handleStaticKey(key string) (tea.Model, tea.Cmd) {
 	switch {
 	case Matches(key, m.keys.Down):
 		if len(m.locks) > 0 {
-			m.selectedIndex = min(m.selectedIndex+1, len(m.locks)-1)
-			m.ensureVisible()
+			newIndex := min(m.selectedIndex+1, len(m.locks)-1)
+			if newIndex != m.selectedIndex {
+				m.selectedIndex = newIndex
+				m.ensureVisible()
+			}
 		}
 		return m, nil
 
 	case Matches(key, m.keys.Up):
-		m.selectedIndex = max(0, m.selectedIndex-1)
-		m.ensureVisible()
+		newIndex := max(0, m.selectedIndex-1)
+		if newIndex != m.selectedIndex {
+			m.selectedIndex = newIndex
+			m.ensureVisible()
+		}
 		return m, nil
 
 	case Matches(key, m.keys.Enter):
@@ -30,27 +36,58 @@ func (m *Model) handleStaticKey(key string) (tea.Model, tea.Cmd) {
 			m.mode = modeDetail
 			m.detailScroll = 0
 			m.killConfirm = false
+			m.fadeAnim.FadeIn(200 * time.Millisecond)
 		}
-		return m, nil
+		return m, animTickCmd()
 
 	case Matches(key, m.keys.Search):
 		m.mode = modeSearch
 		m.searchQuery = ""
 		m.updateSearchResults()
-		return m, nil
+		m.fadeAnim.FadeIn(200 * time.Millisecond)
+		return m, animTickCmd()
 
 	case Matches(key, m.keys.Refresh):
-		return m, m.scanCmd()
+		m.setStatus("refreshing...")
+		return m, tea.Batch(m.scanCmd(), statusClearCmd())
 
 	case Matches(key, m.keys.ThemeCycle):
 		nextTheme := NextTheme(m.theme.Name)
 		m.SetTheme(nextTheme)
-		return m, nil
+		m.setStatus("theme: " + nextTheme)
+		return m, statusClearCmd()
 
 	case Matches(key, m.keys.CommandPalette):
 		m.mode = modePalette
 		m.paletteIndex = 0
-		return m, nil
+		m.fadeAnim.FadeIn(200 * time.Millisecond)
+		return m, animTickCmd()
+
+	case Matches(key, m.keys.Help):
+		m.mode = modeHelp
+		m.detailScroll = 0
+		m.fadeAnim.FadeIn(200 * time.Millisecond)
+		return m, animTickCmd()
+
+	case Matches(key, m.keys.Stats):
+		m.mode = modeStats
+		m.detailScroll = 0
+		m.fadeAnim.FadeIn(200 * time.Millisecond)
+		return m, animTickCmd()
+
+	case Matches(key, m.keys.Sort):
+		m.cycleSortMode()
+		return m, statusClearCmd()
+
+	case Matches(key, m.keys.SortReverse):
+		m.sortReverse = !m.sortReverse
+		m.sortLocks()
+		if m.sortReverse {
+			m.setStatus("sort reversed")
+		} else {
+			m.setStatus("sort normal")
+		}
+		return m, statusClearCmd()
 	}
 
 	return m, nil
@@ -59,8 +96,16 @@ func (m *Model) handleStaticKey(key string) (tea.Model, tea.Cmd) {
 func (m *Model) viewStatic() string {
 	var b strings.Builder
 
-	header := m.styles.Primary.Render(m.targetPath)
+	headerText := m.targetPath
+	if len(headerText) > m.width-10 {
+		headerText = "..." + headerText[len(headerText)-(m.width-13):]
+	}
+	header := m.styles.Primary.Render(headerText)
 	b.WriteString(header)
+	b.WriteString("\n")
+
+	underline := m.styles.Ghost.Render(strings.Repeat("─", min(len(headerText), m.width-4)))
+	b.WriteString(underline)
 	b.WriteString("\n\n")
 
 	if len(m.locks) == 0 {
@@ -70,11 +115,16 @@ func (m *Model) viewStatic() string {
 		return b.String()
 	}
 
-	subheader := m.styles.Tertiary.Render("open by")
-	b.WriteString(subheader)
+	sortModeStr := []string{"name", "duration", "pid", "mode"}[m.sortBy]
+	arrow := "↓"
+	if m.sortReverse {
+		arrow = "↑"
+	}
+	sortIndicator := m.styles.Tertiary.Render(fmt.Sprintf("sorted by %s %s", sortModeStr, arrow))
+	b.WriteString(sortIndicator)
 	b.WriteString("\n\n")
 
-	overhead := 6
+	overhead := 8
 	if m.debug && m.permDenied > 0 {
 		overhead += 2
 	}
@@ -93,6 +143,12 @@ func (m *Model) viewStatic() string {
 		b.WriteString("\n")
 	}
 
+	if len(m.locks) > maxVisible {
+		scrollIndicator := fmt.Sprintf("  %d/%d", m.selectedIndex+1, len(m.locks))
+		b.WriteString("\n")
+		b.WriteString(m.styles.Ghost.Render(scrollIndicator))
+	}
+
 	if m.debug && m.permDenied > 0 {
 		b.WriteString("\n")
 		debugMsg := m.styles.Tertiary.Render(fmt.Sprintf("%d processes hidden - insufficient permissions", m.permDenied))
@@ -107,7 +163,7 @@ func (m *Model) renderLockRow(lock *proc.LockInfo, selected bool) string {
 	if selected {
 		bar = m.styles.Accent.Render("▌ ")
 	} else {
-		bar = "  "
+		bar = m.styles.Ghost.Render("  ")
 	}
 
 	processStyle := m.styles.Secondary
@@ -118,8 +174,16 @@ func (m *Model) renderLockRow(lock *proc.LockInfo, selected bool) string {
 	if processName == "" && len(lock.Process.Cmdline) > 0 {
 		processName = lock.Process.Cmdline[0]
 	}
-	processCol := processStyle.Render(truncate(processName, 20))
-	processCol = lipgloss.NewStyle().Width(20).Render(processCol)
+	processCol := processStyle.Render(truncate(processName, 24))
+	processCol = lipgloss.NewStyle().Width(24).Render(processCol)
+
+	pidText := fmt.Sprintf("%d", lock.Process.PID)
+	pidStyle := m.styles.Tertiary
+	if selected {
+		pidStyle = m.styles.Secondary
+	}
+	pidCol := pidStyle.Render(pidText)
+	pidCol = lipgloss.NewStyle().Width(8).Align(lipgloss.Right).Render(pidCol)
 
 	modeText := lock.FD.Mode.String()
 	var modeStyle lipgloss.Style
@@ -129,14 +193,17 @@ func (m *Model) renderLockRow(lock *proc.LockInfo, selected bool) string {
 		modeStyle = m.styles.Positive
 	}
 	modeCol := modeStyle.Render(modeText)
-	modeCol = lipgloss.NewStyle().Width(12).Render(modeCol)
+	modeCol = lipgloss.NewStyle().Width(10).Render(modeCol)
 
 	durationText := formatDuration(lock.Duration)
-	durationCol := m.styles.Tertiary.Render(durationText)
-	durationCol = lipgloss.NewStyle().Width(12).Align(lipgloss.Right).Render(durationCol)
+	durationStyle := m.styles.Tertiary
+	if selected {
+		durationStyle = m.styles.Secondary
+	}
+	durationCol := durationStyle.Render(durationText)
+	durationCol = lipgloss.NewStyle().Width(10).Align(lipgloss.Right).Render(durationCol)
 
-	row := lipgloss.JoinHorizontal(lipgloss.Left, bar, processCol, modeCol, durationCol)
-	return row
+	return lipgloss.JoinHorizontal(lipgloss.Left, bar, processCol, pidCol, modeCol, durationCol)
 }
 
 func (m *Model) ensureVisible() {

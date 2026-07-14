@@ -10,8 +10,11 @@ import (
 var paletteCommands = []string{
 	"search",
 	"refresh",
-	"copy path",
 	"cycle theme",
+	"cycle sort",
+	"reverse sort",
+	"show help",
+	"show statistics",
 }
 
 func (m *Model) handlePaletteKey(key string) (tea.Model, tea.Cmd) {
@@ -49,18 +52,41 @@ func (m *Model) executePaletteCommand(index int) tea.Cmd {
 		m.mode = modeSearch
 		m.searchQuery = ""
 		m.updateSearchResults()
-		return nil
+		return animTickCmd()
 
 	case "refresh":
-		return m.scanCmd()
-
-	case "copy path":
-		return nil
+		m.setStatus("refreshing...")
+		return tea.Batch(m.scanCmd(), statusClearCmd())
 
 	case "cycle theme":
 		nextTheme := NextTheme(m.theme.Name)
 		m.SetTheme(nextTheme)
-		return nil
+		m.setStatus("theme: " + nextTheme)
+		return statusClearCmd()
+
+	case "cycle sort":
+		m.cycleSortMode()
+		return statusClearCmd()
+
+	case "reverse sort":
+		m.sortReverse = !m.sortReverse
+		m.sortLocks()
+		if m.sortReverse {
+			m.setStatus("sort reversed")
+		} else {
+			m.setStatus("sort normal")
+		}
+		return statusClearCmd()
+
+	case "show help":
+		m.mode = modeHelp
+		m.detailScroll = 0
+		return animTickCmd()
+
+	case "show statistics":
+		m.mode = modeStats
+		m.detailScroll = 0
+		return animTickCmd()
 	}
 
 	return nil
