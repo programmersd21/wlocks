@@ -4,8 +4,6 @@
 
 *A terminal tool that shows which processes have which files open - an interactive `lsof` / `fuser` alternative.*
 
-</div>
-
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
 [![MIT](https://img.shields.io/badge/License-MIT-238636?style=for-the-badge)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/programmersd21/wlocks?style=for-the-badge&label=release&color=8957E5)](https://github.com/programmersd21/wlocks/releases)
@@ -13,6 +11,8 @@
 [![AUR](https://img.shields.io/aur/version/wlocks-bin?style=for-the-badge&logo=archlinux)](https://aur.archlinux.org/packages/wlocks-bin)
 
 <img src="demo/demo.gif" width="720" alt="wlocks demo">
+
+</div>
 
 ## Install
 
