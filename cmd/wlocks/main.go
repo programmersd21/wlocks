@@ -13,7 +13,7 @@ const version = "0.1.0"
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "wlocks — show which processes have which files open\n\n")
+		fmt.Fprintf(os.Stderr, "wlocks - show which processes have which files open\n\n")
 		fmt.Fprintf(os.Stderr, "usage:\n")
 		fmt.Fprintf(os.Stderr, "  wlocks [path]              show who holds this file\n")
 		fmt.Fprintf(os.Stderr, "  wlocks --theme <name>      override theme for this session\n")
@@ -21,7 +21,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  wlocks --version           show version\n")
 		fmt.Fprintf(os.Stderr, "  wlocks --help              show this help\n\n")
 		fmt.Fprintf(os.Stderr, "themes:\n")
-		fmt.Fprintf(os.Stderr, "  default, tokyo, catppuccin, everforest, nord, gruvbox\n")
+		fmt.Fprintf(os.Stderr, "  default, tokyo, catppuccin, everforest, nord, gruvbox, apple, linear, neon\n")
 		fmt.Fprintf(os.Stderr, "  cycle with T key at runtime, set permanently with --theme\n\n")
 		fmt.Fprintf(os.Stderr, "keys:\n")
 		fmt.Fprintf(os.Stderr, "  j/k or arrows    navigate\n")
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	var (
-		themeFlag   = flag.String("theme", "", "override theme (default, tokyo, catppuccin, everforest, nord, gruvbox)")
+		themeFlag   = flag.String("theme", "", "override theme (default, tokyo, catppuccin, everforest, nord, gruvbox, apple, linear, neon)")
 		debugFlag   = flag.Bool("debug", false, "enable debug output")
 		versionFlag = flag.Bool("version", false, "show version")
 	)
@@ -75,10 +75,11 @@ func main() {
 		validThemes := map[string]bool{
 			"default": true, "tokyo": true, "catppuccin": true,
 			"everforest": true, "nord": true, "gruvbox": true,
+			"apple": true, "linear": true, "neon": true,
 		}
 		if !validThemes[*themeFlag] {
 			fmt.Fprintf(os.Stderr, "invalid theme: %s\n", *themeFlag)
-			fmt.Fprintf(os.Stderr, "valid themes: default, tokyo, catppuccin, everforest, nord, gruvbox\n")
+			fmt.Fprintf(os.Stderr, "valid themes: default, tokyo, catppuccin, everforest, nord, gruvbox, apple, linear, neon\n")
 			os.Exit(1)
 		}
 

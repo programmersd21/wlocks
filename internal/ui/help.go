@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -26,43 +27,50 @@ func (m *Model) handleHelpKey(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) viewHelp() string {
+	styles := m.currentStyles()
 	var b strings.Builder
 
-	header := m.styles.Primary.Render("wlocks help")
-	b.WriteString(header)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
-	sections := []struct {
+	pathDisplay := styles.Primary.Bold(true).Render("keyboard shortcuts")
+
+	headerLine := pathDisplay
+	b.WriteString("  " + headerLine + "\n\n")
+
+	type helpItem struct{ key, desc string }
+	type helpSection struct {
 		title string
-		items []struct{ key, desc string }
-	}{
+		items []helpItem
+	}
+
+	sections := []helpSection{
 		{
 			title: "navigation",
-			items: []struct{ key, desc string }{
+			items: []helpItem{
 				{"j/k or ↑↓", "navigate list"},
-				{"enter", "show process details"},
-				{"esc", "go back / clear search"},
+				{"enter", "show details"},
+				{"esc", "go back"},
 			},
 		},
 		{
 			title: "actions",
-			items: []struct{ key, desc string }{
-				{"/", "search processes"},
+			items: []helpItem{
+				{"/", "fuzzy search"},
 				{"r", "refresh snapshot"},
-				{"K", "kill process (with confirm)"},
+				{"K", "kill process"},
 			},
 		},
 		{
 			title: "views",
-			items: []struct{ key, desc string }{
-				{"?", "show this help"},
+			items: []helpItem{
+				{"?", "toggle help"},
 				{"i", "show statistics"},
 				{"ctrl+p", "command palette"},
 			},
 		},
 		{
 			title: "customization",
-			items: []struct{ key, desc string }{
+			items: []helpItem{
 				{"T", "cycle theme"},
 				{"s", "cycle sort mode"},
 				{"S", "reverse sort"},
@@ -70,43 +78,48 @@ func (m *Model) viewHelp() string {
 		},
 		{
 			title: "other",
-			items: []struct{ key, desc string }{
+			items: []helpItem{
 				{"q", "quit"},
 				{"ctrl+c", "force quit"},
 			},
 		},
 	}
 
-	for _, section := range sections {
-		sectionTitle := m.styles.Secondary.Render(section.title)
-		b.WriteString(sectionTitle)
-		b.WriteString("\n\n")
-
-		for _, item := range section.items {
-			keyStyle := m.styles.Accent.Render(item.key)
-			keyCol := lipgloss.NewStyle().Width(20).Render(keyStyle)
-
-			descStyle := m.styles.Tertiary.Render(item.desc)
-
-			line := lipgloss.JoinHorizontal(lipgloss.Left, "  ", keyCol, descStyle)
-			b.WriteString(line)
-			b.WriteString("\n")
+	renderSection := func(sec helpSection) string {
+		var sb strings.Builder
+		sb.WriteString(styles.Secondary.Render(sec.title) + "\n")
+		for _, item := range sec.items {
+			keyStyle := styles.Accent.Render(item.key)
+			keyCol := lipgloss.NewStyle().Width(12).Render(keyStyle)
+			descStyle := styles.Tertiary.Render(item.desc)
+			sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Left, keyCol, descStyle) + "\n")
 		}
-		b.WriteString("\n")
+		return sb.String()
 	}
 
-	tip := m.styles.Ghost.Render("tip: press ? anytime to see available actions")
-	b.WriteString(tip)
+	// 2-Column layout
+	col1 := renderSection(sections[0]) + "\n" + renderSection(sections[1])
+	col2 := renderSection(sections[2]) + "\n" + renderSection(sections[3]) + "\n" + renderSection(sections[4])
+
+	cols := lipgloss.JoinHorizontal(lipgloss.Top, col1, "      ", col2)
+
+	// Indent the columns
+	lines := strings.Split(cols, "\n")
+	for _, line := range lines {
+		b.WriteString("  " + line + "\n")
+	}
 
 	return b.String()
 }
 
 func (m *Model) viewStats() string {
 	var b strings.Builder
+	styles := m.currentStyles()
 
-	header := m.styles.Primary.Render("statistics")
-	b.WriteString(header)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+
+	statsHeader := styles.Primary.Bold(true).Render("aggregate metrics")
+	b.WriteString("  " + statsHeader + "\n\n")
 
 	totalLocks := len(m.locks)
 	readCount := 0
@@ -124,45 +137,39 @@ func (m *Model) viewStats() string {
 
 	uniqueProcesses := len(processMap)
 
-	stats := []struct {
+	labelStyle := styles.Tertiary
+	valStyle := styles.Accent
+
+	col1 := labelStyle.Render("active locks") + "\n" + valStyle.Render(fmt.Sprintf("  %d", totalLocks))
+	col2 := labelStyle.Render("unique processes") + "\n" + valStyle.Render(fmt.Sprintf("  %d", uniqueProcesses))
+	col3 := labelStyle.Render("read / write") + "\n" + valStyle.Render(fmt.Sprintf("  %d / %d", readCount, writeCount))
+
+	metrics := lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().Width(24).Render(col1),
+		lipgloss.NewStyle().Width(24).Render(col2),
+		lipgloss.NewStyle().Width(24).Render(col3),
+	)
+
+	b.WriteString("  " + metrics + "\n\n\n")
+
+	b.WriteString("  " + styles.Secondary.Render("system details") + "\n")
+
+	details := []struct {
 		label string
 		value string
 	}{
-		{"target", m.targetPath},
-		{"total locks", formatInt(totalLocks)},
-		{"unique processes", formatInt(uniqueProcesses)},
-		{"read locks", formatInt(readCount)},
-		{"write locks", formatInt(writeCount)},
+		{"target resource", m.targetPath},
 		{"permission denied", formatInt(m.permDenied)},
+		{"active theme", m.theme.Name},
+		{"current sort mode", []string{"name", "duration", "pid", "mode"}[m.sortBy]},
 	}
 
-	labelWidth := 20
-	for _, stat := range stats {
-		label := m.styles.Tertiary.Render(stat.label)
-		label = lipgloss.NewStyle().Width(labelWidth).Render(label)
-
-		value := m.styles.Primary.Render(stat.value)
-
-		line := lipgloss.JoinHorizontal(lipgloss.Left, "  ", label, value)
-		b.WriteString(line)
-		b.WriteString("\n")
+	for _, detail := range details {
+		lbl := styles.Tertiary.Render(detail.label)
+		lbl = lipgloss.NewStyle().Width(20).Render(lbl)
+		val := styles.Primary.Render(detail.value)
+		fmt.Fprintf(&b, "  %s %s\n", lbl, val)
 	}
-
-	b.WriteString("\n")
-
-	sortModeStr := []string{"name", "duration", "pid", "mode"}[m.sortBy]
-	if m.sortReverse {
-		sortModeStr += " (reversed)"
-	}
-
-	sortInfo := m.styles.Tertiary.Render("current sort: ") +
-		m.styles.Accent.Render(sortModeStr)
-	b.WriteString(sortInfo)
-	b.WriteString("\n")
-
-	themeInfo := m.styles.Tertiary.Render("active theme: ") +
-		m.styles.Accent.Render(m.theme.Name)
-	b.WriteString(themeInfo)
 
 	return b.String()
 }

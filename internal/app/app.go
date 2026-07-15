@@ -12,7 +12,6 @@ import (
 	"golang.org/x/term"
 )
 
-// Options holds configuration for running the app.
 type Options struct {
 	TargetPath string
 	Theme      string
@@ -20,7 +19,6 @@ type Options struct {
 	JSON       bool
 }
 
-// Run starts the wlocks application with the given options.
 func Run(opts Options) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -36,7 +34,12 @@ func Run(opts Options) error {
 		return runPlainText(opts, themeName)
 	}
 
-	model := ui.NewModel(opts.TargetPath, themeName, opts.Debug)
+	model := ui.NewModel(ui.ModelConfig{
+		TargetPath: opts.TargetPath,
+		ThemeName:  themeName,
+		Debug:      opts.Debug,
+		Config:     cfg,
+	})
 
 	p := tea.NewProgram(model)
 	if _, err := p.Run(); err != nil {

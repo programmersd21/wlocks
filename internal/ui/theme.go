@@ -1,6 +1,11 @@
 package ui
 
-import "charm.land/lipgloss/v2"
+import (
+	"fmt"
+	"strings"
+
+	"charm.land/lipgloss/v2"
+)
 
 type Theme struct {
 	Name          string
@@ -88,10 +93,46 @@ var themes = map[string]*Theme{
 		Warning:       "#fabd2f",
 		Danger:        "#fb4934",
 	},
+	"apple": {
+		Name:          "apple",
+		TextPrimary:   "#ffffff",
+		TextSecondary: "#e4e4e7",
+		TextTertiary:  "#a1a1aa",
+		TextGhost:     "#52525b",
+		Accent:        "#ff9f0a",
+		AccentDim:     "#bf7600",
+		Positive:      "#30d158",
+		Warning:       "#ffd60a",
+		Danger:        "#ff453a",
+	},
+	"linear": {
+		Name:          "linear",
+		TextPrimary:   "#f7f8f8",
+		TextSecondary: "#ced4da",
+		TextTertiary:  "#868e96",
+		TextGhost:     "#495057",
+		Accent:        "#5e6ad2",
+		AccentDim:     "#4852b1",
+		Positive:      "#4cb3d4",
+		Warning:       "#f59f00",
+		Danger:        "#f03e3e",
+	},
+	"neon": {
+		Name:          "neon",
+		TextPrimary:   "#ffffff",
+		TextSecondary: "#e2e8f0",
+		TextTertiary:  "#94a3b8",
+		TextGhost:     "#475569",
+		Accent:        "#ff007f",
+		AccentDim:     "#d9006c",
+		Positive:      "#39ff14",
+		Warning:       "#ffd700",
+		Danger:        "#ff3333",
+	},
 }
 
 func ThemeNames() []string {
-	return []string{"default", "tokyo", "catppuccin", "everforest", "nord", "gruvbox"}
+	return []string{"default", "tokyo", "catppuccin", "everforest", "nord", "gruvbox", "apple", "linear", "neon"}
 }
 
 func GetTheme(name string) *Theme {
@@ -137,4 +178,53 @@ func NewStyles(theme *Theme) *Styles {
 		Danger:    lipgloss.NewStyle().Foreground(lipgloss.Color(theme.Danger)),
 		Bar:       lipgloss.NewStyle().Foreground(lipgloss.Color(theme.Accent)),
 	}
+}
+
+func parseHex(s string) (r, g, b float64) {
+	s = strings.TrimPrefix(s, "#")
+	if len(s) == 3 {
+		s = string([]byte{s[0], s[0], s[1], s[1], s[2], s[2]})
+	}
+	if len(s) != 6 {
+		return 0, 0, 0
+	}
+	var rgb int64
+	if _, err := fmt.Sscanf(s, "%x", &rgb); err != nil {
+		return 0, 0, 0
+	}
+	r = float64((rgb >> 16) & 0xFF)
+	g = float64((rgb >> 8) & 0xFF)
+	b = float64(rgb & 0xFF)
+	return r, g, b
+}
+
+func formatHex(r, g, b float64) string {
+	// clamp to 0-255 range
+	rc := int(maxFloat(0, minFloat(255, r)) + 0.5)
+	gc := int(maxFloat(0, minFloat(255, g)) + 0.5)
+	bc := int(maxFloat(0, minFloat(255, b)) + 0.5)
+	return fmt.Sprintf("#%02x%02x%02x", rc, gc, bc)
+}
+
+func interpolateColor(c1, c2 string, t float64) string {
+	r1, g1, b1 := parseHex(c1)
+	r2, g2, b2 := parseHex(c2)
+	r := r1 + (r2-r1)*t
+	g := g1 + (g2-g1)*t
+	b := b1 + (b2-b1)*t
+	return formatHex(r, g, b)
+}
+
+func minFloat(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxFloat(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
 }

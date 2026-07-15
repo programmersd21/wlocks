@@ -4,12 +4,15 @@ package ui
 type KeyMap struct {
 	Up             []string
 	Down           []string
+	Left           []string
+	Right          []string
 	Enter          []string
 	Esc            []string
 	Search         []string
 	Refresh        []string
 	Kill           []string
-	Tree           []string
+	KillForce      []string
+	PauseToggle    []string
 	ThemeCycle     []string
 	CommandPalette []string
 	Help           []string
@@ -24,12 +27,15 @@ func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Up:             []string{"k", "up"},
 		Down:           []string{"j", "down"},
+		Left:           []string{"h", "left"},
+		Right:          []string{"l", "right"},
 		Enter:          []string{"enter"},
 		Esc:            []string{"esc"},
 		Search:         []string{"/"},
 		Refresh:        []string{"r"},
 		Kill:           []string{"K"},
-		Tree:           []string{"t"},
+		KillForce:      []string{"F"},
+		PauseToggle:    []string{"P"},
 		ThemeCycle:     []string{"T"},
 		CommandPalette: []string{"ctrl+p"},
 		Help:           []string{"?"},

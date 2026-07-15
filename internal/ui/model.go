@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"wlocks/internal/config"
 	"wlocks/internal/proc"
 
 	tea "charm.land/bubbletea/v2"
@@ -44,7 +45,12 @@ type Model struct {
 	scrollOffset  int
 	detailLock    *proc.LockInfo
 	detailScroll  int
+	detailTab     int
+	detailFiles   []string
+	detailEnv     []string
 	killConfirm   bool
+	pauseConfirm  bool
+	forceConfirm  bool
 	searchQuery   string
 	searchResults []*proc.LockInfo
 	paletteIndex  int
@@ -60,22 +66,43 @@ type Model struct {
 	statusTimeout   time.Time
 	firstRun        bool
 	searchHistory   []string
+	cfg             *config.Config
 }
 
-func NewModel(targetPath string, themeName string, debug bool) *Model {
-	theme := GetTheme(themeName)
+type ModelConfig struct {
+	TargetPath string
+	ThemeName  string
+	Debug      bool
+	Config     *config.Config
+}
+
+func NewModel(mc ModelConfig) *Model {
+	theme := GetTheme(mc.ThemeName)
+
+	sortBy := sortByDuration
+	switch mc.Config.DefaultSort {
+	case "name":
+		sortBy = sortByName
+	case "pid":
+		sortBy = sortByPID
+	case "mode":
+		sortBy = sortByMode
+	}
+
 	return &Model{
 		mode:          modeStatic,
 		theme:         theme,
 		styles:        NewStyles(theme),
 		keys:          DefaultKeyMap(),
-		targetPath:    targetPath,
-		debug:         debug,
-		sortBy:        sortByDuration,
+		targetPath:    mc.TargetPath,
+		debug:         mc.Debug,
+		sortBy:        sortBy,
 		scrollAnim:    NewScrollAnimation(0),
 		fadeAnim:      NewFadeAnimation(),
 		firstRun:      true,
 		searchHistory: make([]string, 0),
+		detailTab:     0,
+		cfg:           mc.Config,
 	}
 }
 
@@ -103,6 +130,17 @@ type scanCompleteMsg struct {
 
 type killTimeoutMsg struct{}
 
+type killProcessMsg struct {
+	pid int
+	err error
+}
+
+type pauseProcessMsg struct {
+	pid    int
+	paused bool
+	err    error
+}
+
 type animTickMsg time.Time
 
 type refreshTickMsg time.Time
@@ -116,7 +154,7 @@ func animTickCmd() tea.Cmd {
 }
 
 func refreshTickCmd() tea.Cmd {
-	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
 		return refreshTickMsg(t)
 	})
 }
@@ -125,6 +163,41 @@ func statusClearCmd() tea.Cmd {
 	return tea.Tick(3*time.Second, func(t time.Time) tea.Msg {
 		return statusClearMsg{}
 	})
+}
+
+func (m *Model) persistConfig() {
+	cfg := &config.Config{
+		Theme:           m.theme.Name,
+		DefaultSort:     []string{"name", "duration", "pid", "mode"}[m.sortBy],
+		LiveRefreshRate: 1,
+		AnimationSpeed:  "normal",
+	}
+	if err := config.Save(cfg); err != nil && m.debug {
+		m.setStatus(fmt.Sprintf("config save failed: %v", err))
+	}
+}
+
+func (m *Model) killProcessCmd(pid int) tea.Cmd {
+	return func() tea.Msg {
+		// Try SIGTERM first (graceful)
+		err := killProcess(pid, false)
+		return killProcessMsg{pid: pid, err: err}
+	}
+}
+
+func (m *Model) killForceProcessCmd(pid int) tea.Cmd {
+	return func() tea.Msg {
+		// Try SIGKILL (force)
+		err := killProcess(pid, true)
+		return killProcessMsg{pid: pid, err: err}
+	}
+}
+
+func (m *Model) pauseProcessCmd(pid int, stop bool) tea.Cmd {
+	return func() tea.Msg {
+		err := pauseProcess(pid, stop)
+		return pauseProcessMsg{pid: pid, paused: stop, err: err}
+	}
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -179,7 +252,36 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case killTimeoutMsg:
 		m.killConfirm = false
+		m.pauseConfirm = false
+		m.forceConfirm = false
 		return m, nil
+
+	case killProcessMsg:
+		m.killConfirm = false
+		m.forceConfirm = false
+		m.mode = modeStatic
+		if msg.err != nil {
+			m.setStatus(fmt.Sprintf("kill failed: %v", msg.err))
+		} else {
+			m.setStatus(fmt.Sprintf("killed process %d", msg.pid))
+			// Trigger immediate refresh to update the list
+			return m, tea.Batch(m.scanCmd(), statusClearCmd())
+		}
+		return m, statusClearCmd()
+
+	case pauseProcessMsg:
+		m.pauseConfirm = false
+		if msg.err != nil {
+			m.setStatus(fmt.Sprintf("pause failed: %v", msg.err))
+		} else {
+			if msg.paused {
+				m.setStatus(fmt.Sprintf("paused process %d", msg.pid))
+			} else {
+				m.setStatus(fmt.Sprintf("resumed process %d", msg.pid))
+			}
+			return m, tea.Batch(m.scanCmd(), statusClearCmd())
+		}
+		return m, statusClearCmd()
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -250,43 +352,69 @@ func (m *Model) View() tea.View {
 }
 
 func (m *Model) viewFooter() string {
-	left := m.styles.Primary.Render("w l o c k s") + m.styles.Ghost.Render(" • ") + m.styles.Secondary.Render(m.theme.Name)
+	styles := m.currentStyles()
+	left := styles.Ghost.Render("wlocks") + styles.Ghost.Render(" • ") + styles.Secondary.Render(m.theme.Name)
 	if len(m.locks) > 0 {
-		left += m.styles.Ghost.Render(" • ") + m.styles.Secondary.Render(fmt.Sprintf("%d locks", len(m.locks)))
+		left += styles.Ghost.Render(" • ") + styles.Secondary.Render(fmt.Sprintf("%d locks", len(m.locks)))
 	}
 	if m.statusMessage != "" {
-		left += m.styles.Ghost.Render(" • ") + m.styles.Accent.Render(m.statusMessage)
+		left += styles.Ghost.Render(" • ") + styles.Accent.Render(m.statusMessage)
 	}
 
 	var right string
 	switch m.mode {
 	case modeStatic:
-		right = m.styles.Accent.Render("j/k") + m.styles.Tertiary.Render(" navigate  ") +
-			m.styles.Accent.Render("enter") + m.styles.Tertiary.Render(" details  ") +
-			m.styles.Accent.Render("/") + m.styles.Tertiary.Render(" search  ") +
-			m.styles.Accent.Render("?") + m.styles.Tertiary.Render(" help  ") +
-			m.styles.Accent.Render("q") + m.styles.Tertiary.Render(" quit")
+		right = styles.Accent.Render("j/k") + styles.Tertiary.Render(" navigate  ") +
+			styles.Accent.Render("enter") + styles.Tertiary.Render(" details  ") +
+			styles.Accent.Render("/") + styles.Tertiary.Render(" search  ") +
+			styles.Accent.Render("?") + styles.Tertiary.Render(" help  ") +
+			styles.Accent.Render("q") + styles.Tertiary.Render(" quit")
 	case modeDetail:
-		right = m.styles.Accent.Render("esc") + m.styles.Tertiary.Render(" back  ") +
-			m.styles.Accent.Render("K") + m.styles.Tertiary.Render(" kill  ") +
-			m.styles.Accent.Render("q") + m.styles.Tertiary.Render(" quit")
+		right = styles.Accent.Render("esc") + styles.Tertiary.Render(" back  ") +
+			styles.Accent.Render("K") + styles.Tertiary.Render(" kill  ") +
+			styles.Accent.Render("q") + styles.Tertiary.Render(" quit")
 	case modeSearch:
-		right = m.styles.Accent.Render("esc") + m.styles.Tertiary.Render(" back  ") +
+		right = styles.Accent.Render("esc") + styles.Tertiary.Render(" back  ") +
 			m.rightNav() +
-			m.styles.Accent.Render("enter") + m.styles.Tertiary.Render(" details  ") +
-			m.styles.Accent.Render("q") + m.styles.Tertiary.Render(" quit")
+			styles.Accent.Render("enter") + styles.Tertiary.Render(" details  ") +
+			styles.Accent.Render("q") + styles.Tertiary.Render(" quit")
 	case modePalette:
-		right = m.styles.Accent.Render("j/k") + m.styles.Tertiary.Render(" navigate  ") +
-			m.styles.Accent.Render("enter") + m.styles.Tertiary.Render(" select  ") +
-			m.styles.Accent.Render("esc") + m.styles.Tertiary.Render(" back  ") +
-			m.styles.Accent.Render("q") + m.styles.Tertiary.Render(" quit")
+		right = styles.Accent.Render("j/k") + styles.Tertiary.Render(" navigate  ") +
+			styles.Accent.Render("enter") + styles.Tertiary.Render(" select  ") +
+			styles.Accent.Render("esc") + styles.Tertiary.Render(" back  ") +
+			styles.Accent.Render("q") + styles.Tertiary.Render(" quit")
 	case modeHelp, modeStats:
-		right = m.styles.Accent.Render("esc") + m.styles.Tertiary.Render(" back  ") +
-			m.styles.Accent.Render("j/k") + m.styles.Tertiary.Render(" scroll  ") +
-			m.styles.Accent.Render("q") + m.styles.Tertiary.Render(" quit")
+		right = styles.Accent.Render("esc") + styles.Tertiary.Render(" back  ") +
+			styles.Accent.Render("j/k") + styles.Tertiary.Render(" scroll  ") +
+			styles.Accent.Render("q") + styles.Tertiary.Render(" quit")
 	}
 
 	return m.joinLeftRight(left, right)
+}
+
+func (m *Model) currentStyles() *Styles {
+	if !m.fadeAnim.IsVisible() {
+		return m.styles
+	}
+	opacity := m.fadeAnim.Opacity()
+	fadedTheme := &Theme{
+		Name:          m.theme.Name,
+		TextPrimary:   interpolateColor(m.theme.TextGhost, m.theme.TextPrimary, opacity),
+		TextSecondary: interpolateColor(m.theme.TextGhost, m.theme.TextSecondary, opacity),
+		TextTertiary:  interpolateColor(m.theme.TextGhost, m.theme.TextTertiary, opacity),
+		TextGhost:     m.theme.TextGhost,
+		Accent:        interpolateColor(m.theme.TextGhost, m.theme.Accent, opacity),
+		AccentDim:     interpolateColor(m.theme.TextGhost, m.theme.AccentDim, opacity),
+		Positive:      interpolateColor(m.theme.TextGhost, m.theme.Positive, opacity),
+		Warning:       interpolateColor(m.theme.TextGhost, m.theme.Warning, opacity),
+		Danger:        interpolateColor(m.theme.TextGhost, m.theme.Danger, opacity),
+	}
+	return NewStyles(fadedTheme)
+}
+
+func (m *Model) SetTheme(themeName string) {
+	m.theme = GetTheme(themeName)
+	m.styles = NewStyles(m.theme)
 }
 
 func (m *Model) handleStatsKey(key string) (tea.Model, tea.Cmd) {
@@ -339,11 +467,6 @@ func (m *Model) joinLeftRight(left string, right string) string {
 
 	spaces := strings.Repeat(" ", m.width-leftLen-rightLen)
 	return left + spaces + right
-}
-
-func (m *Model) SetTheme(themeName string) {
-	m.theme = GetTheme(themeName)
-	m.styles = NewStyles(m.theme)
 }
 
 func (m *Model) sortLocks() {

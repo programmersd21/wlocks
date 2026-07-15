@@ -7,7 +7,6 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config holds persistent user configuration.
 type Config struct {
 	Theme           string `toml:"theme"`
 	DefaultSort     string `toml:"default_sort"`
@@ -15,7 +14,6 @@ type Config struct {
 	AnimationSpeed  string `toml:"animation_speed"`
 }
 
-// Default returns the default configuration.
 func Default() *Config {
 	return &Config{
 		Theme:           "default",
@@ -25,23 +23,24 @@ func Default() *Config {
 	}
 }
 
-// ConfigPath returns the path to the config file.
 func ConfigPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+	xdgHome := os.Getenv("XDG_CONFIG_HOME")
+	if xdgHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		xdgHome = filepath.Join(home, ".config")
 	}
-	return filepath.Join(home, ".config", "wlocks", "config.toml"), nil
+	return filepath.Join(xdgHome, "wlocks", "config.toml"), nil
 }
 
-// Load reads the config file. Returns default config if file doesn't exist.
 func Load() (*Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
 		return Default(), nil
 	}
 
-	// If file doesn't exist, return default
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return Default(), nil
 	}
@@ -59,20 +58,17 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// Save writes the config file.
 func Save(cfg *Config) error {
 	path, err := ConfigPath()
 	if err != nil {
 		return err
 	}
 
-	// Ensure directory exists
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
-	// Marshal to TOML
 	data, err := toml.Marshal(cfg)
 	if err != nil {
 		return err

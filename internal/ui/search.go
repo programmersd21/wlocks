@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
+	"time"
 	"wlocks/internal/proc"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -37,19 +40,33 @@ func (m *Model) handleSearchKey(key string) (tea.Model, tea.Cmd) {
 			m.detailLock = m.searchResults[m.selectedIndex]
 			m.mode = modeDetail
 			m.detailScroll = 0
+			m.detailTab = 0
 			m.killConfirm = false
+			m.pauseConfirm = false
+			m.forceConfirm = false
+			m.detailFiles = proc.GetProcessOpenFiles(m.detailLock.Process.PID)
+			m.detailEnv = proc.GetProcessEnv(m.detailLock.Process.PID)
+			m.fadeAnim.FadeIn(200 * time.Millisecond)
 		}
-		return m, nil
+		return m, animTickCmd()
 
 	case Matches(key, m.keys.Down):
 		if len(m.searchResults) > 0 {
-			m.selectedIndex = min(m.selectedIndex+1, len(m.searchResults)-1)
+			newIndex := min(m.selectedIndex+1, len(m.searchResults)-1)
+			if newIndex != m.selectedIndex {
+				m.selectedIndex = newIndex
+				m.ensureSearchVisible()
+			}
 		}
-		return m, nil
+		return m, animTickCmd()
 
 	case Matches(key, m.keys.Up):
-		m.selectedIndex = max(0, m.selectedIndex-1)
-		return m, nil
+		newIndex := max(0, m.selectedIndex-1)
+		if newIndex != m.selectedIndex {
+			m.selectedIndex = newIndex
+			m.ensureSearchVisible()
+		}
+		return m, animTickCmd()
 
 	case key == "backspace" || key == "\x7f":
 		if len(m.searchQuery) > 0 {
@@ -69,6 +86,8 @@ func (m *Model) handleSearchKey(key string) (tea.Model, tea.Cmd) {
 
 func (m *Model) updateSearchResults() {
 	m.selectedIndex = 0
+	m.scrollOffset = 0
+	m.scrollAnim = NewScrollAnimation(0)
 
 	if m.searchQuery == "" {
 		m.searchResults = m.locks
@@ -98,32 +117,85 @@ func (m *Model) updateSearchResults() {
 
 func (m *Model) viewSearch() string {
 	var b strings.Builder
+	styles := m.currentStyles()
 
-	prompt := m.styles.Accent.Render("/") + m.styles.Primary.Render(m.searchQuery)
-	b.WriteString(prompt)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+
+	searchPrompt := styles.Accent.Render(" / ") + styles.Primary.Render(m.searchQuery)
+	searchPrompt += styles.Accent.Render("▋")
+
+	b.WriteString("  " + searchPrompt + "\n\n")
 
 	if len(m.searchResults) == 0 {
-		empty := m.styles.Tertiary.Render("no matches.")
-		b.WriteString(empty)
 		b.WriteString("\n")
+		empty := styles.Tertiary.Render("no matching processes found.")
+		b.WriteString("  " + empty + "\n")
 		return b.String()
 	}
 
-	maxVisible := m.height - 5
+	pHeader := styles.Ghost.Render("process")
+	pHeader = lipgloss.NewStyle().Width(20).Render(pHeader)
+
+	pidHeader := styles.Ghost.Render("pid")
+	pidHeader = lipgloss.NewStyle().Width(7).Align(lipgloss.Right).Render(pidHeader)
+
+	modeHeader := styles.Ghost.Render("mode")
+	modeHeader = lipgloss.NewStyle().Width(9).Render(modeHeader)
+
+	durHeader := styles.Ghost.Render("duration")
+	durHeader = lipgloss.NewStyle().Width(9).Align(lipgloss.Right).Render(durHeader)
+
+	colHeader := lipgloss.JoinHorizontal(lipgloss.Left, "  ", pHeader, "  ", pidHeader, "  ", modeHeader, "  ", durHeader)
+	b.WriteString("  " + colHeader + "\n")
+	b.WriteString("\n")
+
+	overhead := 8
+	maxVisible := m.height - overhead
 	if maxVisible < 1 {
 		maxVisible = 1
 	}
 
-	start := 0
+	animatedScroll := m.scrollAnim.Update()
+	if animatedScroll < 0 {
+		animatedScroll = 0
+	}
+	if animatedScroll >= len(m.searchResults) {
+		animatedScroll = max(0, len(m.searchResults)-1)
+	}
+	start := animatedScroll
 	end := min(start+maxVisible, len(m.searchResults))
 
 	for i := start; i < end; i++ {
 		lock := m.searchResults[i]
 		row := m.renderLockRow(lock, i == m.selectedIndex)
-		b.WriteString(row)
+		b.WriteString("  " + row + "\n")
+	}
+
+	if len(m.searchResults) > maxVisible {
 		b.WriteString("\n")
+		progressText := fmt.Sprintf("  %d - %d of %d matches (j/k to scroll)", start+1, end, len(m.searchResults))
+		b.WriteString(styles.Tertiary.Render(progressText))
 	}
 
 	return b.String()
+}
+
+func (m *Model) ensureSearchVisible() {
+	overhead := 8
+	maxVisible := m.height - overhead
+	if maxVisible < 1 {
+		maxVisible = 1
+	}
+
+	targetOffset := m.scrollOffset
+	if m.selectedIndex < targetOffset {
+		targetOffset = m.selectedIndex
+	} else if m.selectedIndex >= targetOffset+maxVisible {
+		targetOffset = m.selectedIndex - maxVisible + 1
+	}
+
+	if targetOffset != m.scrollOffset {
+		m.scrollOffset = targetOffset
+		m.scrollAnim.SetTarget(targetOffset, 150*time.Millisecond)
+	}
 }

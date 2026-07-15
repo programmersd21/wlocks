@@ -32,8 +32,11 @@ func (m *Model) handlePaletteKey(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case Matches(key, m.keys.Enter):
+		prevMode := m.mode
 		cmd := m.executePaletteCommand(m.paletteIndex)
-		m.mode = modeStatic
+		if m.mode == prevMode {
+			m.mode = modeStatic
+		}
 		return m, cmd
 
 	default:
@@ -62,10 +65,12 @@ func (m *Model) executePaletteCommand(index int) tea.Cmd {
 		nextTheme := NextTheme(m.theme.Name)
 		m.SetTheme(nextTheme)
 		m.setStatus("theme: " + nextTheme)
+		m.persistConfig()
 		return statusClearCmd()
 
 	case "cycle sort":
 		m.cycleSortMode()
+		m.persistConfig()
 		return statusClearCmd()
 
 	case "reverse sort":
@@ -76,6 +81,7 @@ func (m *Model) executePaletteCommand(index int) tea.Cmd {
 		} else {
 			m.setStatus("sort normal")
 		}
+		m.persistConfig()
 		return statusClearCmd()
 
 	case "show help":
@@ -93,13 +99,19 @@ func (m *Model) executePaletteCommand(index int) tea.Cmd {
 }
 
 func (m *Model) viewPalette() string {
+	styles := m.currentStyles()
 	var items []string
+
+	header := styles.Ghost.Render("command palette")
+	items = append(items, "  "+header)
+	items = append(items, "") // spacing
+
 	for i, cmd := range paletteCommands {
 		var line string
 		if i == m.paletteIndex {
-			line = m.styles.Accent.Render("▌ ") + m.styles.Accent.Render(cmd)
+			line = styles.Accent.Render("  ▸ ") + styles.Accent.Render(cmd)
 		} else {
-			line = "  " + m.styles.Secondary.Render(cmd)
+			line = "    " + styles.Ghost.Render(cmd)
 		}
 		items = append(items, line)
 	}
@@ -111,7 +123,7 @@ func (m *Model) viewPalette() string {
 		Width(maxWidth).
 		Render(content)
 
-	vPad := max(0, (m.height-len(items)-2)/2)
+	vPad := max(0, (m.height-len(items))/2)
 	hPad := max(0, (m.width-maxWidth)/2)
 
 	padded := lipgloss.NewStyle().
