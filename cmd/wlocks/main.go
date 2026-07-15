@@ -9,7 +9,7 @@ import (
 	"wlocks/internal/config"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 func main() {
 	flag.Usage = func() {
